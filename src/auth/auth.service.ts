@@ -20,10 +20,7 @@ export class AuthService {
       if (existingUser) {
         throw new ConflictException('User with this email already exists');
       }
-      const response = await this.supabaseService.signUp(
-        signUpDto.email,
-        signUpDto.password,
-      );
+      const response = await this.supabaseService.signUp(signUpDto.email, signUpDto.password);
 
       if (response.error) {
         this.logger.error(`Supabase signup error: ${response.error.message}`);
@@ -38,18 +35,16 @@ export class AuthService {
         refresh_token: response.data.session.refresh_token,
         user: response.data.user,
       };
-    } catch (error: any) {
-      this.logger.error(`Error during signup: ${error?.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Error during signup: ${errorMessage}`);
       throw new UnauthorizedException('Authentication failed');
     }
   }
 
   async signIn(signInDto: SignInDto): Promise<AuthResponseDto> {
     try {
-      const response = await this.supabaseService.signIn(
-        signInDto.email,
-        signInDto.password,
-      );
+      const response = await this.supabaseService.signIn(signInDto.email, signInDto.password);
 
       if (response.error) {
         this.logger.error(`Supabase signin error: ${response.error.message}`);
@@ -65,11 +60,12 @@ export class AuthService {
         refresh_token: response.data.session.refresh_token,
         user: response.data.user,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-      this.logger.error(`Error during signin: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Error during signin: ${errorMessage}`);
       throw new UnauthorizedException('Authentication failed');
     }
   }
@@ -77,34 +73,33 @@ export class AuthService {
   async signOut(): Promise<{ success: boolean; message: string }> {
     try {
       const { error } = await this.supabaseService.signOut();
-      
+
       if (error) {
         this.logger.error(`Supabase signout error: ${error.message}`);
         throw new UnauthorizedException('Failed to sign out');
       }
-      
+
       return {
         success: true,
         message: 'Successfully signed out',
       };
-    } catch (error: any) {
-      this.logger.error(`Error during signout: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Error during signout: ${errorMessage}`);
       throw new UnauthorizedException('Failed to sign out');
     }
   }
 
   async deleteAccount(userId: string): Promise<{ success: boolean; message: string }> {
     try {
-      await Promise.all([
-        this.usersService.remove(userId),
-        this.supabaseService.signOut(),
-      ]);
+      await Promise.all([this.usersService.remove(userId), this.supabaseService.signOut()]);
       return {
         success: true,
         message: 'Account successfully deleted',
       };
-    } catch (error: any) {
-      this.logger.error(`Error deleting account: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Error deleting account: ${errorMessage}`);
       throw new UnauthorizedException('Failed to delete account');
     }
   }

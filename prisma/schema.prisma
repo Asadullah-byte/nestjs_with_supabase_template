@@ -12,5 +12,6 @@ model User {
   email     String
   metadata  Json?    @default("[]")
   createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
   @@map("user")
 }

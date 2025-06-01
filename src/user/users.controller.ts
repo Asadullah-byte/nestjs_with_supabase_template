@@ -5,7 +5,12 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateMetadataDto } from './dto/update-metadata.dto';
 import { ApiTags } from '@nestjs/swagger';
 import { User } from '@prisma/client';
-import { ApiGetUser, ApiUpdateUser, ApiDeleteUser, ApiUpdateMetadata } from './docs/api-docs.decorator';
+import {
+  ApiGetUser,
+  ApiUpdateUser,
+  ApiDeleteUser,
+  ApiUpdateMetadata,
+} from './docs/api-docs.decorator';
 import { Auth } from '@decorators/auth.decorator';
 
 @Auth()
@@ -40,7 +45,10 @@ export class UsersController {
 
   @Put('metadata')
   @ApiUpdateMetadata()
-  async updateMetadata(@Req() req: Request, @Body() updateMetadataDto: UpdateMetadataDto): Promise<User> {
+  async updateMetadata(
+    @Req() req: Request,
+    @Body() updateMetadataDto: UpdateMetadataDto,
+  ): Promise<User> {
     try {
       return await this.usersService.updateMetadata(req.user.id, updateMetadataDto.metadata);
     } catch (error) {

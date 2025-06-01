@@ -22,7 +22,7 @@ export class UsersService {
     });
   }
 
-  async updateMetadata(id: string, metadata: any): Promise<User> {
+  async updateMetadata(id: string, metadata: Record<string, unknown>): Promise<User> {
     return this.prisma.user.update({
       where: { id },
       data: { metadata },
