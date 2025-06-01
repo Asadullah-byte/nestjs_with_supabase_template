@@ -28,13 +28,9 @@
     //Performance
     "skipLibCheck": true,
     "paths": {
-      "@utils/*": [
-        "src/utils/*"
-      ],
-      "@common/*": [
-        "src/utils/common/*"
-      ],
-      "@decorators/*":["src/utils/common/decorators/*"]
+      "@utils/*": ["src/utils/*"],
+      "@common/*": ["src/utils/common/*"],
+      "@decorators/*": ["src/utils/common/decorators/*"]
     }
   }
 }

@@ -1,9 +1,5 @@
 import { applyDecorators, UseGuards } from '@nestjs/common';
-import {
-  ApiBasicAuth,
-  ApiSecurity,
-  ApiUnauthorizedResponse,
-} from '@nestjs/swagger';
+import { ApiBasicAuth, ApiSecurity, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { SupabaseAuthGuard } from '../guards/supabase-auth.guard';
 
 export function Auth() {
