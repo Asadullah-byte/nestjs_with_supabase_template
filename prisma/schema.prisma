@@ -8,10 +8,10 @@ datasource db {
 }
 
 model User {
-  id        String   @id @map("uuid")
-  email     String
+  id        String   @id @db.Uuid
+  email     String   @unique(map: "users_email_key")
   metadata  Json?    @default("[]")
   createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @default(now()) @map("updated_at")
+  updatedAt DateTime @updatedAt @map("updated_at") @default(now())
   @@map("user")
 }
