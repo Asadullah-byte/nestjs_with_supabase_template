@@ -17,8 +17,15 @@ export class UsersService {
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.prisma.user.findUnique({
+    return this.prisma.user.findFirst({
       where: { email },
+    });
+  }
+
+  async updateMetadata(id: string, metadata: any): Promise<User> {
+    return this.prisma.user.update({
+      where: { id },
+      data: { metadata },
     });
   }
 

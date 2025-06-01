@@ -1,0 +1,111 @@
+import { Injectable, Logger, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { SupabaseService } from '../utils/supabase/supabase.service';
+import { SignUpDto } from './dto/sign-up.dto';
+import { SignInDto } from './dto/sign-in.dto';
+import { AuthResponseDto } from './dto/auth-response.dto';
+import { UsersService } from '../user/users.service';
+
+@Injectable()
+export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly usersService: UsersService,
+  ) {}
+
+  async signUp(signUpDto: SignUpDto): Promise<AuthResponseDto> {
+    try {
+      const existingUser = await this.usersService.findByEmail(signUpDto.email);
+      if (existingUser) {
+        throw new ConflictException('User with this email already exists');
+      }
+      const response = await this.supabaseService.signUp(
+        signUpDto.email,
+        signUpDto.password,
+      );
+
+      if (response.error) {
+        this.logger.error(`Supabase signup error: ${response.error.message}`);
+        throw new UnauthorizedException(response.error.message);
+      }
+
+      if (!response.data.user || !response.data.session) {
+        throw new UnauthorizedException('Failed to create user account');
+      }
+      return {
+        access_token: response.data.session.access_token,
+        refresh_token: response.data.session.refresh_token,
+        user: response.data.user,
+      };
+    } catch (error: any) {
+      this.logger.error(`Error during signup: ${error?.message}`);
+      throw new UnauthorizedException('Authentication failed');
+    }
+  }
+
+  async signIn(signInDto: SignInDto): Promise<AuthResponseDto> {
+    try {
+      const response = await this.supabaseService.signIn(
+        signInDto.email,
+        signInDto.password,
+      );
+
+      if (response.error) {
+        this.logger.error(`Supabase signin error: ${response.error.message}`);
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
+      if (!response.data.user || !response.data.session) {
+        throw new UnauthorizedException('Authentication failed');
+      }
+
+      return {
+        access_token: response.data.session.access_token,
+        refresh_token: response.data.session.refresh_token,
+        user: response.data.user,
+      };
+    } catch (error: any) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      this.logger.error(`Error during signin: ${error.message}`);
+      throw new UnauthorizedException('Authentication failed');
+    }
+  }
+
+  async signOut(): Promise<{ success: boolean; message: string }> {
+    try {
+      const { error } = await this.supabaseService.signOut();
+      
+      if (error) {
+        this.logger.error(`Supabase signout error: ${error.message}`);
+        throw new UnauthorizedException('Failed to sign out');
+      }
+      
+      return {
+        success: true,
+        message: 'Successfully signed out',
+      };
+    } catch (error: any) {
+      this.logger.error(`Error during signout: ${error.message}`);
+      throw new UnauthorizedException('Failed to sign out');
+    }
+  }
+
+  async deleteAccount(userId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      await Promise.all([
+        this.usersService.remove(userId),
+        this.supabaseService.signOut(),
+      ]);
+      return {
+        success: true,
+        message: 'Account successfully deleted',
+      };
+    } catch (error: any) {
+      this.logger.error(`Error deleting account: ${error.message}`);
+      throw new UnauthorizedException('Failed to delete account');
+    }
+  }
+}

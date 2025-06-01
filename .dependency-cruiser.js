@@ -148,10 +148,9 @@ module.exports = {
       name: 'not-to-dev-dep',
       severity: 'error',
       comment:
-        "This module depends on an npm package from the 'devDependencies' section of your " +
+        'This module depends on an npm package from the "devDependencies" section of your ' +
         'package.json. It looks like something that ships to production, though. To prevent problems ' +
-        "with npm packages that aren't there on production declare it (only!) in the 'dependencies'" +
-        'section of your package.json. If this module is development only - add it to the ' +
+        'with npm packages that fail to install, or that have an incompatible version on the ' +
         'from.pathNot re of the not-to-dev-dep rule in the dependency-cruiser configuration',
       from: {
         path: '^(src)',
@@ -162,7 +161,10 @@ module.exports = {
         // type only dependencies are not a problem as they don't end up in the
         // production code or are ignored by the runtime.
         dependencyTypesNot: ['type-only'],
-        pathNot: ['node_modules/@types/'],
+        pathNot: [
+          'node_modules/@types/',
+          'node_modules/express/index.js',
+        ],
       },
     },
     {
@@ -309,6 +311,10 @@ module.exports = {
        If you use webpack: you can also set these in webpack.conf.js. The set
        there will override the ones specified here.
      */
+    /* Use the paths as configured in tsconfig.json */
+    tsConfig: {
+      fileName: './tsconfig.json'
+    },
     enhancedResolveOptions: {
       /* What to consider as an 'exports' field in package.jsons */
       exportsFields: ['exports'],
@@ -392,4 +398,3 @@ module.exports = {
     },
   },
 };
-// generated: dependency-cruiser@16.10.2 on 2025-06-01T15:04:57.775Z
