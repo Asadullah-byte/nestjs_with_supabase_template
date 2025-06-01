@@ -21,6 +21,10 @@ export class SupabaseService {
     //this.supabase = createClient(supabaseUrl, supabaseServiceKey);
   }
 
+  getPublicClient(): SupabaseClient {
+    return this.supabase_public;
+  }
+
   async signUp(email: string, password: string): Promise<AuthResponse> {
     try {
       const response = await this.supabase_public.auth.signUp({

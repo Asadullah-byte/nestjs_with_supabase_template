@@ -26,6 +26,15 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     //Performance
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "paths": {
+      "@utils/*": [
+        "src/utils/*"
+      ],
+      "@common/*": [
+        "src/utils/common/*"
+      ],
+      "@decorators/*":["src/utils/common/decorators/*"]
+    }
   }
 }
