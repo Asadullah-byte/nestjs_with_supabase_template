@@ -2,9 +2,12 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { RequestLoggerMiddleware } from './utils/logger/request-logger.middleware';
 import { AppConfigModule } from './utils/config/config.module';
 import { SystemController } from './utils/system/system.controller';
+import { PrismaModule } from './utils/prisma/prisma.module';
+import { UsersModule } from './users/users.module';
+import { SupabaseModule } from './utils/supabase/supabase.module';
 
 @Module({
-  imports: [AppConfigModule],
+  imports: [AppConfigModule, PrismaModule, UsersModule, SupabaseModule],
   controllers: [SystemController],
   providers: [],
 })

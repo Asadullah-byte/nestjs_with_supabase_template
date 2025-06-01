@@ -1,6 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { AppConfigService } from './config.service';
+import { SupabaseService } from './supabase.service';
 
 @Global()
 @Module({
@@ -10,7 +10,7 @@ import { AppConfigService } from './config.service';
       envFilePath: ['.env'],
     }),
   ],
-  providers: [AppConfigService],
-  exports: [AppConfigService],
+  providers: [SupabaseService],
+  exports: [SupabaseService],
 })
-export class AppConfigModule {}
+export class SupabaseModule {}
