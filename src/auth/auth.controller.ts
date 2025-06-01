@@ -35,8 +35,9 @@ export class AuthController {
   @Auth()
   @ApiSignOut()
   @HttpCode(HttpStatus.OK)
-  async signOut() {
-    return this.authService.signOut();
+  async signOut(@Req() req: Request) {
+    const token = req.headers.authorization?.split(' ')[1];
+    return this.authService.signOut(token);
   }
 
   @Delete('account')

@@ -25,11 +25,16 @@ export class SupabaseService {
     return this.supabase_public;
   }
 
-  async signUp(email: string, password: string): Promise<AuthResponse> {
+  async signUp(
+    email: string,
+    password: string,
+    options?: Record<string, unknown>,
+  ): Promise<AuthResponse> {
     try {
       const response = await this.supabase_public.auth.signUp({
         email,
         password,
+        options: options,
       });
       return response;
     } catch (error) {
@@ -63,9 +68,35 @@ export class SupabaseService {
     }
   }
 
-  async signOut(): Promise<{ error: Error | null }> {
+  async signOut(
+    scope: 'local' | 'global' | 'others' = 'local',
+    token?: string,
+  ): Promise<{ error: Error | null }> {
     try {
-      return await this.supabase_public.auth.signOut();
+      if (token) {
+        const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
+        const supabaseAnonKey = this.configService.get<string>('SUPABASE_ANON_KEY');
+
+        if (!supabaseUrl || !supabaseAnonKey) {
+          throw new Error('Supabase environment variables are not set');
+        }
+
+        const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+          },
+        });
+
+        await supabaseClient.auth.setSession({
+          access_token: token,
+          refresh_token: '',
+        });
+
+        return await supabaseClient.auth.signOut({ scope });
+      }
+
+      return await this.supabase_public.auth.signOut({ scope });
     } catch (error) {
       const errorMessage =
         error && typeof error === 'object' && 'message' in error

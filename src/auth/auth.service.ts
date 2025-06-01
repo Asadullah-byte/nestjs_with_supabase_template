@@ -1,4 +1,10 @@
-import { Injectable, Logger, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  UnauthorizedException,
+  ConflictException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { SupabaseService } from '../utils/supabase/supabase.service';
 import { SignUpDto } from './dto/sign-up.dto';
 import { SignInDto } from './dto/sign-in.dto';
@@ -20,25 +26,30 @@ export class AuthService {
       if (existingUser) {
         throw new ConflictException('User with this email already exists');
       }
-      const response = await this.supabaseService.signUp(signUpDto.email, signUpDto.password);
+      const response = await this.supabaseService.signUp(signUpDto.email, signUpDto.password, {
+        data: {
+          firstName: signUpDto.firstName,
+          lastName: signUpDto.lastName,
+          fullName: `${signUpDto.firstName} ${signUpDto.lastName}`,
+        },
+      });
 
       if (response.error) {
         this.logger.error(`Supabase signup error: ${response.error.message}`);
-        throw new UnauthorizedException(response.error.message);
+        throw new Error(response.error.message);
+      }
+      if (!response.data.user) {
+        throw new Error('Failed to create user account');
       }
 
-      if (!response.data.user || !response.data.session) {
-        throw new UnauthorizedException('Failed to create user account');
-      }
       return {
-        access_token: response.data.session.access_token,
-        refresh_token: response.data.session.refresh_token,
+        message: 'User created. Please check your email for confirmation.',
         user: response.data.user,
       };
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Error during signup: ${errorMessage}`);
-      throw new UnauthorizedException('Authentication failed');
+      throw new InternalServerErrorException('Some error occurred');
     }
   }
 
@@ -70,9 +81,9 @@ export class AuthService {
     }
   }
 
-  async signOut(): Promise<{ success: boolean; message: string }> {
+  async signOut(token?: string): Promise<{ success: boolean; message: string }> {
     try {
-      const { error } = await this.supabaseService.signOut();
+      const { error } = await this.supabaseService.signOut('local', token);
 
       if (error) {
         this.logger.error(`Supabase signout error: ${error.message}`);
