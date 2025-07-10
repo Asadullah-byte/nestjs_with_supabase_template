@@ -4,6 +4,7 @@ import { winstonLoggerConfig } from './utils/logger/winston-logger.config';
 import { WinstonModule } from 'nest-winston';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
+import * as cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -17,7 +18,7 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
-
+  app.use(cookieParser());
   const config = new DocumentBuilder()
     .setTitle('NestJS Auth Template')
     .setDescription('NestJS Auth Template API description')

@@ -10,6 +10,7 @@ import { SignUpDto } from './dto/sign-up.dto';
 import { SignInDto } from './dto/sign-in.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { UsersService } from '../user/users.service';
+import { Response } from 'express';
 
 @Injectable()
 export class AuthService {
@@ -53,7 +54,7 @@ export class AuthService {
     }
   }
 
-  async signIn(signInDto: SignInDto): Promise<AuthResponseDto> {
+  async signIn(signInDto: SignInDto, res: Response): Promise<AuthResponseDto> {
     try {
       const response = await this.supabaseService.signIn(signInDto.email, signInDto.password);
 
@@ -64,6 +65,23 @@ export class AuthService {
 
       if (!response.data.user || !response.data.session) {
         throw new UnauthorizedException('Authentication failed');
+      }
+      const AuthType = process.env.AUTHENTICATED_METHOD;
+      if (AuthType === 'cookie') {
+        res.cookie('access_token', response.data.session.access_token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'Production',
+          sameSite: 'lax',
+        });
+        res.cookie('refresh_token', response.data.session.refresh_token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'Production',
+          sameSite: 'lax',
+        });
+        return {
+          message: 'Login successful. Tokens set in cookies.',
+          user: response.data.user,
+        } as AuthResponseDto;
       }
 
       return {
@@ -81,13 +99,19 @@ export class AuthService {
     }
   }
 
-  async signOut(token?: string): Promise<{ success: boolean; message: string }> {
+  async signOut(token?: string, res?: Response): Promise<{ success: boolean; message: string }> {
     try {
       const { error } = await this.supabaseService.signOut('local', token);
 
       if (error) {
         this.logger.error(`Supabase signout error: ${error.message}`);
         throw new UnauthorizedException('Failed to sign out');
+      }
+
+      const authMethod = process.env.AUTHENTICATED_METHOD;
+      if (authMethod === 'cookie' && res) {
+        res.clearCookie('access_token');
+        res.clearCookie('refresh_token');
       }
 
       return {

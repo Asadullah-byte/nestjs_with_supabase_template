@@ -1,7 +1,8 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Req, Delete } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Req, Delete, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { User } from '@supabase/supabase-js';
+import { Response } from 'express';
 
 interface AuthenticatedRequest extends Request {
   user: User;
@@ -27,17 +28,17 @@ export class AuthController {
   @Post('signin')
   @ApiSignIn()
   @HttpCode(HttpStatus.OK)
-  async signIn(@Body() signInDto: SignInDto) {
-    return this.authService.signIn(signInDto);
+  async signIn(@Body() signInDto: SignInDto, @Res({ passthrough: true }) res: Response) {
+    return this.authService.signIn(signInDto, res);
   }
 
   @Post('signout')
   @Auth()
   @ApiSignOut()
   @HttpCode(HttpStatus.OK)
-  async signOut(@Req() req: Request) {
+  async signOut(@Req() req: Request, @Res({ passthrough: true }) res?: Response) {
     const token = req.headers.authorization?.split(' ')[1];
-    return this.authService.signOut(token);
+    return this.authService.signOut(token, res);
   }
 
   @Delete('account')

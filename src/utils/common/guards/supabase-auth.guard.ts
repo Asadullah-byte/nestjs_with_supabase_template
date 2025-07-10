@@ -16,8 +16,19 @@ export class SupabaseAuthGuard implements CanActivate {
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<Request>();
+    const request: AuthenticatedRequest = context.switchToHttp().getRequest();
     const authHeader = request.headers.authorization;
+
+    const authMethod = process.env.AUTHENTICATED_METHOD;
+
+    let token: string | undefined;
+
+    if (authMethod === 'cookie') {
+      const cookies = request.cookies as Record<string, string> | undefined;
+      token = cookies?.['access_token'];
+      if (!token) throw new UnauthorizedException('No access cookie found');
+      return this.handleJwtAuth(token, request);
+    }
 
     if (!authHeader || typeof authHeader !== 'string') {
       throw new UnauthorizedException('No authentication provided');
