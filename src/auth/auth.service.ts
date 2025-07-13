@@ -107,7 +107,6 @@ export class AuthService {
         this.logger.error(`Supabase signout error: ${error.message}`);
         throw new UnauthorizedException('Failed to sign out');
       }
-
       const authMethod = process.env.AUTHENTICATED_METHOD;
       if (authMethod === 'cookie' && res) {
         res.clearCookie('access_token');

@@ -18,7 +18,6 @@ export class SupabaseAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request: AuthenticatedRequest = context.switchToHttp().getRequest();
     const authHeader = request.headers.authorization;
-
     const authMethod = process.env.AUTHENTICATED_METHOD;
 
     let token: string | undefined;

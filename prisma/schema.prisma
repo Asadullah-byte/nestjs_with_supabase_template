@@ -13,5 +13,29 @@ model User {
   metadata  Json?    @default("[]")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at") @default(now())
+  chats     Chat[]   @relation("UserChats")
+
   @@map("user")
+}
+
+model Chat {
+  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at DateTime   @default(now()) @db.Timestamptz(6)
+  user_Id    String     @db.Uuid
+  title      String     @default("")
+  user       User       @relation("UserChats", fields: [user_Id], references: [id], onDelete: Cascade, map: "Chats_user_Id_fkey") // ✅ same relation name as above
+  messages   Message[]
+
+  @@map("chats")
+}
+
+model Message {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  chat_id    String   @db.Uuid
+  role       String   @default("")
+  content    String   @default("")
+  chat       Chat     @relation(fields: [chat_id], references: [id], onDelete: Cascade)
+
+  @@map("messages")
 }

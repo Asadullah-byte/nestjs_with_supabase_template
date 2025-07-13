@@ -3,7 +3,6 @@ import { ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { User } from '@supabase/supabase-js';
 import { Response } from 'express';
-
 interface AuthenticatedRequest extends Request {
   user: User;
 }

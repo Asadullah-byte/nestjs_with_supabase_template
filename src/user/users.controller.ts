@@ -3,8 +3,7 @@ import { Request } from 'express';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateMetadataDto } from './dto/update-metadata.dto';
-import { ApiTags } from '@nestjs/swagger';
-import { User } from '@prisma/client';
+
 import {
   ApiGetUser,
   ApiUpdateUser,
@@ -12,6 +11,9 @@ import {
   ApiUpdateMetadata,
 } from './docs/api-docs.decorator';
 import { Auth } from '@decorators/auth.decorator';
+
+import { ApiTags } from '@nestjs/swagger';
+import { User } from '@prisma/client';
 
 @Auth()
 @ApiTags('User Self')
