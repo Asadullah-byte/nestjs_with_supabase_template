@@ -70,16 +70,22 @@ export class AuthService {
       if (AuthType === 'cookie') {
         res.cookie('access_token', response.data.session.access_token, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'Production',
+          secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
         });
         res.cookie('refresh_token', response.data.session.refresh_token, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'Production',
+          secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
         });
         return {
           message: 'Login successful. Tokens set in cookies.',
+          user: response.data.user,
+        } as AuthResponseDto;
+      } else if (AuthType === 'jwt') {
+        res.setHeader('Authorization', `Bearer ${response.data.session.access_token}`);
+        return {
+          message: 'Login Successful. Token Set in Authorization Headers',
           user: response.data.user,
         } as AuthResponseDto;
       }
