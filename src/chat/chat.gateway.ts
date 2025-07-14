@@ -1,5 +1,6 @@
 import {
   OnGatewayConnection,
+  OnGatewayDisconnect,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
@@ -8,7 +9,7 @@ import { Server, Socket } from 'socket.io';
 import { ChatService } from './chat.service';
 
 @WebSocketGateway({ namespace: '/chat' })
-export class ChatGateway implements OnGatewayConnection {
+export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
 
@@ -23,13 +24,17 @@ export class ChatGateway implements OnGatewayConnection {
       const authHeader = client.handshake.headers.authorization;
       token = authHeader?.split('Bearer ')[1];
     }
+
+    console.log('Client connected with token:', token);
+  }
+
+  handleDisconnect(client: Socket) {
+    let token: string[] | string | undefined;
     if (!token) {
       console.log('No token found — disconnecting client');
       client.disconnect();
       return;
     }
-
-    console.log('Client connected with token:', token);
   }
   @SubscribeMessage('message')
   async handleMessage(client: Socket, payload: { chatId: string; content: string }) {
