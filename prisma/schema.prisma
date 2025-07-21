@@ -8,34 +8,58 @@ datasource db {
 }
 
 model User {
-  id        String   @id @db.Uuid
-  email     String   @unique(map: "users_email_key")
-  metadata  Json?    @default("[]")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at") @default(now())
-  chats     Chat[]   @relation("UserChats")
+  id                                  String         @id @db.Uuid
+  email                               String         @unique(map: "users_email_key")
+  metadata                            Json?          @default("[]")
+  createdAt                           DateTime       @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)")) @map("created_at")
+  updatedAt                           DateTime       @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)")) @updatedAt @map("updated_at")
+  chat                                Chat[]
+  groupMembers                        GroupMembers[]
+  messages_messages_reciever_idTouser Message[]      @relation("messages_reciever_idTouser")
+  messages_messages_sender_idTouser   Message[]      @relation("messages_sender_idTouser")
 
   @@map("user")
 }
 
-model Chat {
-  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  created_at DateTime   @default(now()) @db.Timestamptz(6)
-  user_Id    String     @db.Uuid
-  title      String     @default("")
-  user       User       @relation("UserChats", fields: [user_Id], references: [id], onDelete: Cascade, map: "Chats_user_Id_fkey") // ✅ same relation name as above
-  messages   Message[]
-
-  @@map("chats")
-}
-
 model Message {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  chat_id    String   @db.Uuid
-  role       String   @default("")
-  content    String   @default("")
-  chat       Chat     @relation(fields: [chat_id], references: [id], onDelete: Cascade)
+  id                              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at                      DateTime  @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)")) @db.Timestamptz(6)
+  content                         String    @default("")
+  is_seen                         Boolean
+  reciever_id                     String?   @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sender_id                       String    @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  updated_at                      DateTime? @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)")) @db.Timestamptz(6)
+  chat_id                         String    @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chat                            Chat      @relation(fields: [chat_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_messages_reciever_idTouser User?     @relation("messages_reciever_idTouser", fields: [reciever_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_messages_sender_idTouser   User      @relation("messages_sender_idTouser", fields: [sender_id], references: [id], onDelete: NoAction)
 
   @@map("messages")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model GroupMembers {
+  created_at DateTime @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)")) @db.Timestamptz(6)
+  chat_id    String   @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chat       Chat     @relation(fields: [chat_id], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("groupMembers")
+}
+
+model Chat {
+  id           String         @id(map: "chats_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at   DateTime       @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)")) @db.Timestamptz(6)
+  created_by   String         @db.Uuid
+  name         String?        @default("")
+  updated_at   DateTime       @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)")) @db.Timestamptz(6)
+  members      String[]
+  reciever_id  String?        @db.Uuid
+  user         User           @relation(fields: [created_by], references: [id], onDelete: Cascade)
+  groupMembers GroupMembers[]
+  messages     Message[]
+
+  @@map("chat")
 }

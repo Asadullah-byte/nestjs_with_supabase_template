@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsArray, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export class ChatDto {
   @ApiProperty({
@@ -10,5 +10,22 @@ export class ChatDto {
   @IsString()
   @IsOptional()
   @MaxLength(100)
-  title?: string;
+  name?: string;
+
+  @IsOptional()
+  created_at?: Date;
+
+  @IsUUID()
+  created_by!: string;
+
+  @IsOptional()
+  updated_at?: Date;
+
+  @IsUUID()
+  @IsOptional()
+  reciever_id?: string;
+
+  @IsArray()
+  @IsOptional()
+  members?: string[];
 }
