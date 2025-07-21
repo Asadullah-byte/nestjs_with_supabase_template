@@ -69,7 +69,14 @@ export class ChatGateway implements OnGatewayConnection {
           });
           console.log(usersName);
           chatData = {
-            name: usersName.join(',') || 'Group chat',
+            name: usersName.join(','),
+            created_by: data.created_by,
+            members: allMembers,
+          };
+          membersToAdd = allMembers;
+        } else {
+          chatData = {
+            name: data.name,
             created_by: data.created_by,
             members: allMembers,
           };
