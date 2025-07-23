@@ -16,20 +16,27 @@ import { AddGroupMemberDto } from './dto/add-group-member.dto';
 import { LeaveGroupDto } from './dto/leave-group.dto';
 import { EditMessageDto } from './dto/edit-message.dto';
 import * as nodemailer from 'nodemailer';
+import { JwtServiceService } from 'src/jwt-service/jwt-service.service';
+import { AuthenticatedSocket, SupabaseJwtPayload } from './types/socket-user';
 
 @WebSocketGateway({ namespace: '/chat' })
 export class ChatGateway implements OnGatewayConnection {
   @WebSocketServer()
   server!: Server;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtServiceService,
+  ) {}
 
-  handleConnection(client: Socket) {
+  async handleConnection(client: AuthenticatedSocket) {
     const authMethod = process.env.AUTHENTICATED_METHOD;
-    let token: string[] | string | undefined;
+    let token: string | undefined;
     if (authMethod === 'cookie') {
       const cookie = client.handshake.headers.cookie;
-      token = cookie;
+      const match = cookie;
+      token = match;
+      console.log(token);
     } else if (authMethod === 'jwt') {
       const authHeader = client.handshake.headers.authorization;
       token = authHeader?.split('Bearer ')[1];
@@ -39,6 +46,17 @@ export class ChatGateway implements OnGatewayConnection {
       console.log('No token found — disconnecting client');
       client.disconnect();
       return;
+    }
+
+    try {
+      const validateToken = (await this.jwtService.tokenValidation(
+        token,
+      )) as unknown as SupabaseJwtPayload;
+
+      client.data.user = validateToken;
+    } catch (error) {
+      console.error('Token verification failded: ', error);
+      client.disconnect();
     }
   }
   @SubscribeMessage('initiateChat')
@@ -82,25 +100,25 @@ export class ChatGateway implements OnGatewayConnection {
           };
           membersToAdd = allMembers;
         }
-      } else if (data.reciever_id) {
-        const allMembers = [data.created_by, data.reciever_id];
+      } else if (data.receiver_id) {
+        const allMembers = [data.created_by, data.receiver_id];
         const chatExists = await this.prisma.chat.findFirst({
           where: {
             OR: [
-              { created_by: data.created_by, reciever_id: data.reciever_id },
-              { created_by: data.reciever_id, reciever_id: data.created_by },
+              { created_by: data.created_by, receiver_id: data.receiver_id },
+              { created_by: data.receiver_id, receiver_id: data.created_by },
             ],
           },
           select: { id: true },
         });
         if (chatExists) {
           client.emit('error', {
-            message: `Chat already exist between ${data.created_by} and ${data.reciever_id}`,
+            message: `Chat already exist between ${data.created_by} and ${data.receiver_id}`,
           });
           return;
         }
         const reciever = await this.prisma.user.findUnique({
-          where: { id: data.reciever_id },
+          where: { id: data.receiver_id },
           select: { metadata: true },
         });
         const metadata = reciever?.metadata as { fullName?: string } | undefined;
@@ -108,7 +126,7 @@ export class ChatGateway implements OnGatewayConnection {
 
         chatData = {
           name: data.name || null,
-          reciever_id: data.reciever_id,
+          receiver_id: data.receiver_id,
           created_by: data.created_by,
           members: allMembers,
         };
@@ -125,7 +143,7 @@ export class ChatGateway implements OnGatewayConnection {
       });
 
       const addMembers = membersToAdd.map((userId) =>
-        this.prisma.groupMembers.create({
+        this.prisma.group_members.create({
           data: {
             chat_id: createdChat.id,
             user_id: userId,
@@ -134,13 +152,13 @@ export class ChatGateway implements OnGatewayConnection {
       );
       await Promise.all(addMembers);
 
-      const chatName = `chat_${createdChat.id}`;
-      await client.join(chatName);
-      client.to(chatName).emit('chatCreated', { chat: createdChat, chatName });
+      const room = `chat_${createdChat.id}`;
+      await client.join(room);
+      client.emit('chatCreated', { chat: createdChat, room });
       if (membersToAdd.length > 1) {
-        client.to(chatName).emit('joinChatRoom', {
+        client.to(room).emit('joinChatRoom', {
           chat: createdChat,
-          chatName: chatName,
+          room: room,
           members: membersToAdd,
           recieverName: recieverName || null,
         });
@@ -159,7 +177,7 @@ export class ChatGateway implements OnGatewayConnection {
     const chat = await this.prisma.chat.findUnique({
       where: { id: data.chat_id },
       include: {
-        groupMembers: {
+        group_members: {
           select: {
             user_id: true,
           },
@@ -170,10 +188,17 @@ export class ChatGateway implements OnGatewayConnection {
       client.emit('error', { message: `No such chat with chatId: ${data.chat_id} exists` });
       return;
     }
-    const memberIds = chat.groupMembers.map((member) => member.user_id);
+    const memberIds = chat.group_members.map((member) => member.user_id);
 
     if (!memberIds.includes(data.sender_id)) {
       client.emit('error', { message: 'You are not member of this group' });
+      return;
+    }
+    const room = `chat_${data.chat_id}`;
+    const isInRoom = client.rooms.has(room);
+    if (!isInRoom) {
+      client.emit('error', { message: 'You must join the chat room before sending messages' });
+      return;
     }
 
     const sendMessage = await this.prisma.message.create({
@@ -181,13 +206,12 @@ export class ChatGateway implements OnGatewayConnection {
         chat_id: data.chat_id,
         content: data.content,
         sender_id: data.sender_id,
-        reciever_id: null,
+        receiver_id: null,
         is_seen: false,
       },
     });
-    const chatName = `chat_${sendMessage.chat_id}`;
-    await client.join(chatName);
-    client.to(chatName).emit('message', sendMessage);
+
+    client.to(room).emit('message', sendMessage);
   }
 
   @SubscribeMessage('joinRoom')
@@ -195,7 +219,7 @@ export class ChatGateway implements OnGatewayConnection {
     @ConnectedSocket() client: Socket,
     @MessageBody(ValidationPipe) data: JoinRoomDto,
   ) {
-    const chats = (await this.prisma.groupMembers.findMany({
+    const chats = (await this.prisma.group_members.findMany({
       where: {
         user_id: data.user_id,
       },
@@ -221,7 +245,7 @@ export class ChatGateway implements OnGatewayConnection {
   ) {
     const chats = await this.prisma.chat.findMany({
       where: {
-        groupMembers: {
+        group_members: {
           some: {
             user_id: data.user_id,
           },
@@ -253,10 +277,6 @@ export class ChatGateway implements OnGatewayConnection {
       });
     }
 
-    await this.prisma.message.updateMany({
-      where: { id: { in: messageIds } },
-      data: { is_seen: true },
-    });
     client.emit('message', { chatMessages });
   }
 
@@ -286,7 +306,7 @@ export class ChatGateway implements OnGatewayConnection {
         },
       });
       await this.prisma.chat.update({
-        where: { id: editMessage.chat_id },
+        where: { id: editMessage.chat_id ?? undefined },
         data: { updated_at: new Date() },
       });
       client.emit('messageEdited', { editMessage });
@@ -312,7 +332,7 @@ export class ChatGateway implements OnGatewayConnection {
     const groupExists = await this.prisma.chat.findUnique({
       where: { id: data.chat_id },
       include: {
-        groupMembers: {
+        group_members: {
           select: { user_id: true, user: { select: { id: true, email: true } } },
         },
       },
@@ -323,7 +343,9 @@ export class ChatGateway implements OnGatewayConnection {
       return;
     }
 
-    const memberExists = groupExists.groupMembers.some((member) => member.user_id === data.user_id);
+    const memberExists = groupExists.group_members.some(
+      (member) => member.user_id === data.user_id,
+    );
 
     if (memberExists) {
       client.emit('error', {
@@ -337,7 +359,7 @@ export class ChatGateway implements OnGatewayConnection {
       where: { id: data.chat_id },
       data: { members: addMember },
     });
-    await this.prisma.groupMembers.create({
+    await this.prisma.group_members.create({
       data: {
         chat_id: data.chat_id,
         user_id: data.user_id,
@@ -351,7 +373,7 @@ export class ChatGateway implements OnGatewayConnection {
         pass: 'yjrx whlb ftec emyo',
       },
     });
-    const updateGroupMembers = groupExists.groupMembers
+    const updateGroupMembers = groupExists.group_members
       .filter((member) => member.user.id !== data.user_id && member.user.id !== data.created_by)
       .map((member) => member.user.email);
     for (const email of updateGroupMembers) {
@@ -408,7 +430,7 @@ export class ChatGateway implements OnGatewayConnection {
       return;
     }
 
-    await this.prisma.groupMembers.delete({
+    await this.prisma.group_members.delete({
       where: {
         id: data.id,
       },

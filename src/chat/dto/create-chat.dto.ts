@@ -23,7 +23,7 @@ export class ChatDto {
 
   @IsUUID()
   @IsOptional()
-  reciever_id?: string;
+  receiver_id?: string;
 
   @IsArray()
   @IsOptional()

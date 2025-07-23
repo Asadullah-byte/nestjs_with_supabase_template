@@ -7,9 +7,18 @@ import { UsersModule } from './user/users.module';
 import { SupabaseModule } from './utils/supabase/supabase.module';
 import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
+import { JwtServiceModule } from './jwt-service/jwt-service.module';
 
 @Module({
-  imports: [AppConfigModule, PrismaModule, UsersModule, SupabaseModule, AuthModule, ChatModule],
+  imports: [
+    AppConfigModule,
+    PrismaModule,
+    UsersModule,
+    SupabaseModule,
+    AuthModule,
+    ChatModule,
+    JwtServiceModule,
+  ],
   controllers: [SystemController],
   providers: [],
 })

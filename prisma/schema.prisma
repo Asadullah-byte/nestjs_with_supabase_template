@@ -8,58 +8,57 @@ datasource db {
 }
 
 model User {
-  id                                  String         @id @db.Uuid
-  email                               String         @unique(map: "users_email_key")
-  metadata                            Json?          @default("[]")
-  createdAt                           DateTime       @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)")) @map("created_at")
-  updatedAt                           DateTime       @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)")) @updatedAt @map("updated_at")
+  id                                  String          @id(map: "users_pkey") @db.Uuid
+  email                               String          @unique(map: "users_email_key")
+  metadata                            Json?           @default("[]")
+  createdAt                           DateTime        @default(now()) @map("created_at")
+  updatedAt                           DateTime        @default(now()) @updatedAt @map("updated_at")
   chat                                Chat[]
-  groupMembers                        GroupMembers[]
-  messages_messages_reciever_idTouser Message[]      @relation("messages_reciever_idTouser")
-  messages_messages_sender_idTouser   Message[]      @relation("messages_sender_idTouser")
+  chat_chat_receiver_idTouser         Chat[]          @relation("chat_receiver_idTouser")
+  group_members                       group_members[]
+  messages_messages_reciever_idTouser Message[]       @relation("messages_reciever_idTouser")
+  messages_messages_sender_idTouser   Message[]       @relation("messages_sender_idTouser")
 
   @@map("user")
 }
 
 model Message {
-  id                              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  created_at                      DateTime  @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)")) @db.Timestamptz(6)
-  content                         String    @default("")
+  id                              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at                      DateTime @default(now()) @db.Timestamptz(6)
+  content                         String
+  receiver_id                     String?  @db.Uuid
+  sender_id                       String   @db.Uuid
+  chat_id                         String   @db.Uuid
   is_seen                         Boolean
-  reciever_id                     String?   @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  sender_id                       String    @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  updated_at                      DateTime? @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)")) @db.Timestamptz(6)
-  chat_id                         String    @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  chat                            Chat      @relation(fields: [chat_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  user_messages_reciever_idTouser User?     @relation("messages_reciever_idTouser", fields: [reciever_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  user_messages_sender_idTouser   User      @relation("messages_sender_idTouser", fields: [sender_id], references: [id], onDelete: NoAction)
+  updated_at                      DateTime @default(now()) @db.Timestamptz(6)
+  chat                            Chat     @relation(fields: [chat_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_messages_reciever_idTouser User?    @relation("messages_reciever_idTouser", fields: [receiver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_messages_sender_idTouser   User     @relation("messages_sender_idTouser", fields: [sender_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@map("messages")
 }
 
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model GroupMembers {
-  created_at DateTime @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)")) @db.Timestamptz(6)
-  chat_id    String   @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id    String   @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  chat       Chat     @relation(fields: [chat_id], references: [id], onDelete: Cascade)
-  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
-  @@map("groupMembers")
-}
-
 model Chat {
-  id           String         @id(map: "chats_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  created_at   DateTime       @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)")) @db.Timestamptz(6)
-  created_by   String         @db.Uuid
-  name         String?        @default("")
-  updated_at   DateTime       @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)")) @db.Timestamptz(6)
-  members      String[]
-  reciever_id  String?        @db.Uuid
-  user         User           @relation(fields: [created_by], references: [id], onDelete: Cascade)
-  groupMembers GroupMembers[]
-  messages     Message[]
+  id                          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at                  DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime        @default(now()) @db.Timestamptz(6)
+  created_by                  String          @db.Uuid
+  name                        String?
+  receiver_id                 String?         @db.Uuid
+  members                     String[]
+  user                        User            @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user_chat_receiver_idTouser User?           @relation("chat_receiver_idTouser", fields: [receiver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  group_members               group_members[]
+  messages                    Message[]
 
   @@map("chat")
+}
+
+model group_members {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  chat_id    String   @db.Uuid
+  user_id    String   @db.Uuid
+  chat       Chat     @relation(fields: [chat_id], references: [id], onDelete: Cascade, map: "group_members_chat_id_fkey")
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade, map: "group_members_user_id_fkey")
 }
