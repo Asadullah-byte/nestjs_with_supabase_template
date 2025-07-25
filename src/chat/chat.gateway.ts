@@ -1,8 +1,9 @@
-import { ValidationPipe } from '@nestjs/common';
+import { UseGuards, ValidationPipe } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
+  OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
@@ -16,58 +17,49 @@ import { AddGroupMemberDto } from './dto/add-group-member.dto';
 import { LeaveGroupDto } from './dto/leave-group.dto';
 import { EditMessageDto } from './dto/edit-message.dto';
 import * as nodemailer from 'nodemailer';
-import { JwtServiceService } from 'src/jwt-service/jwt-service.service';
-import { AuthenticatedSocket, SupabaseJwtPayload } from './types/socket-user';
+import { SocketGuard } from '@utils/common/guards/auth.gaurd';
+import { AuthenticatedSocket } from './types/socket-user';
+import { JwtService } from 'src/jwt-service/jwt-service.service';
+import { socketAuthMiddleware } from '@utils/common/middleware/socket-middleware/socket.middleware';
 
 @WebSocketGateway({ namespace: '/chat' })
-export class ChatGateway implements OnGatewayConnection {
+export class ChatGateway implements OnGatewayInit, OnGatewayConnection {
   @WebSocketServer()
   server!: Server;
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly jwtService: JwtServiceService,
+    private readonly jwtService: JwtService,
   ) {}
-
-  async handleConnection(client: AuthenticatedSocket) {
-    const authMethod = process.env.AUTHENTICATED_METHOD;
-    let token: string | undefined;
-    if (authMethod === 'cookie') {
-      const cookie = client.handshake.headers.cookie;
-      const match = cookie;
-      token = match;
-      console.log(token);
-    } else if (authMethod === 'jwt') {
-      const authHeader = client.handshake.headers.authorization;
-      token = authHeader?.split('Bearer ')[1];
-    }
-
-    if (!token) {
-      console.log('No token found — disconnecting client');
-      client.disconnect();
-      return;
-    }
-
-    try {
-      const validateToken = (await this.jwtService.tokenValidation(
-        token,
-      )) as unknown as SupabaseJwtPayload;
-
-      client.data.user = validateToken;
-    } catch (error) {
-      console.error('Token verification failded: ', error);
-      client.disconnect();
-    }
+  afterInit(server: Server) {
+    server.use(socketAuthMiddleware(this.jwtService));
   }
+  handleConnection(client: AuthenticatedSocket) {
+    console.log('User connected:', client.data.user?.sub);
+  }
+
+  @UseGuards(SocketGuard)
   @SubscribeMessage('initiateChat')
   async handleInitiateChat(
     @MessageBody(ValidationPipe) data: ChatDto,
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: AuthenticatedSocket,
   ) {
     try {
       let chatData;
+      const user = client.data.user;
+      const sub = user?.sub;
+      if (!sub) {
+        client.emit('error', { message: 'Unauthorized: Missing user ID' });
+        return;
+      }
+
+      data.created_by = sub;
       let membersToAdd: string[] = [];
       let recieverName: string | null = null;
+      if (!data.created_by) {
+        client.emit('error', { message: 'Unauthorized: Missing user ID' });
+        return;
+      }
 
       if (data.members && data.members.length > 0) {
         const allMembers = [data.created_by, ...data.members];
@@ -169,6 +161,7 @@ export class ChatGateway implements OnGatewayConnection {
     }
   }
 
+  @UseGuards(SocketGuard)
   @SubscribeMessage('sendMessage')
   async handleSendMessage(
     @MessageBody(ValidationPipe) data: SendMessageDto,
@@ -214,6 +207,7 @@ export class ChatGateway implements OnGatewayConnection {
     client.to(room).emit('message', sendMessage);
   }
 
+  @UseGuards(SocketGuard)
   @SubscribeMessage('joinRoom')
   async handleJoinRoom(
     @ConnectedSocket() client: Socket,
@@ -238,6 +232,8 @@ export class ChatGateway implements OnGatewayConnection {
 
     client.emit('joinedRoom', { rooms: chatIds });
   }
+
+  @UseGuards(SocketGuard)
   @SubscribeMessage('getMessages')
   async handleGetPrivateMessage(
     @MessageBody() data: { user_id: string },
@@ -280,6 +276,7 @@ export class ChatGateway implements OnGatewayConnection {
     client.emit('message', { chatMessages });
   }
 
+  @UseGuards(SocketGuard)
   @SubscribeMessage('editMessages')
   async handleEditMessage(
     @MessageBody(ValidationPipe) data: EditMessageDto,
@@ -315,6 +312,8 @@ export class ChatGateway implements OnGatewayConnection {
       return;
     }
   }
+
+  @UseGuards(SocketGuard)
   @SubscribeMessage('addMember')
   async handleAddMember(
     @MessageBody(ValidationPipe) data: AddGroupMemberDto,
@@ -406,6 +405,7 @@ export class ChatGateway implements OnGatewayConnection {
     });
   }
 
+  @UseGuards(SocketGuard)
   @SubscribeMessage('leaveGroup')
   async handleLeaveRoom(
     @ConnectedSocket() client: Socket,

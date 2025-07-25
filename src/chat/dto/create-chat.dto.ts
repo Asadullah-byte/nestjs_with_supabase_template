@@ -16,7 +16,8 @@ export class ChatDto {
   created_at?: Date;
 
   @IsUUID()
-  created_by!: string;
+  @IsOptional()
+  created_by?: string;
 
   @IsOptional()
   updated_at?: Date;
