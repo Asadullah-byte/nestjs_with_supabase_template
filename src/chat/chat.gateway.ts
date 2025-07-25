@@ -8,7 +8,7 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
+import { Server } from 'socket.io';
 import { PrismaService } from '@utils/prisma/prisma.service';
 import { ChatDto } from './dto/create-chat.dto';
 import { SendMessageDto } from './dto/send-message.dto';
@@ -21,7 +21,18 @@ import { SocketGuard } from '@utils/common/guards/auth.gaurd';
 import { AuthenticatedSocket } from './types/socket-user';
 import { JwtService } from 'src/jwt-service/jwt-service.service';
 import { socketAuthMiddleware } from '@utils/common/middleware/socket-middleware/socket.middleware';
+import { GetMessagesDto } from './dto/get-message.dto';
+import {
+  ApiAddGroupMember,
+  ApiEditMessage,
+  ApiGetMessages,
+  ApiJoinRoom,
+  ApiLeaveGroup,
+  ApiSendMessage,
+} from './docs/api-docs.decorator';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Chat-WebSocket')
 @WebSocketGateway({ namespace: '/chat' })
 export class ChatGateway implements OnGatewayInit, OnGatewayConnection {
   @WebSocketServer()
@@ -162,11 +173,20 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection {
   }
 
   @UseGuards(SocketGuard)
+  @ApiSendMessage()
   @SubscribeMessage('sendMessage')
   async handleSendMessage(
     @MessageBody(ValidationPipe) data: SendMessageDto,
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: AuthenticatedSocket,
   ) {
+    const user = client.data.user;
+    const sub = user?.sub;
+    if (!sub) {
+      client.emit('error', { message: 'Unauthorized: Missing user ID' });
+      return;
+    }
+
+    data.sender_id = sub;
     const chat = await this.prisma.chat.findUnique({
       where: { id: data.chat_id },
       include: {
@@ -208,11 +228,20 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection {
   }
 
   @UseGuards(SocketGuard)
+  @ApiJoinRoom()
   @SubscribeMessage('joinRoom')
   async handleJoinRoom(
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody(ValidationPipe) data: JoinRoomDto,
   ) {
+    const user = client.data.user;
+    const sub = user?.sub;
+    if (!sub) {
+      client.emit('error', { message: 'Unauthorized: Missing user ID' });
+      return;
+    }
+
+    data.user_id = sub;
     const chats = (await this.prisma.group_members.findMany({
       where: {
         user_id: data.user_id,
@@ -234,11 +263,20 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection {
   }
 
   @UseGuards(SocketGuard)
+  @ApiGetMessages()
   @SubscribeMessage('getMessages')
   async handleGetPrivateMessage(
-    @MessageBody() data: { user_id: string },
-    @ConnectedSocket() client: Socket,
+    @MessageBody() data: GetMessagesDto,
+    @ConnectedSocket() client: AuthenticatedSocket,
   ) {
+    const user = client.data.user;
+    const sub = user?.sub;
+    if (!sub) {
+      client.emit('error', { message: 'Unauthorized: Missing user ID' });
+      return;
+    }
+
+    data.user_id = sub;
     const chats = await this.prisma.chat.findMany({
       where: {
         group_members: {
@@ -277,11 +315,21 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection {
   }
 
   @UseGuards(SocketGuard)
+  @ApiEditMessage()
   @SubscribeMessage('editMessages')
   async handleEditMessage(
     @MessageBody(ValidationPipe) data: EditMessageDto,
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: AuthenticatedSocket,
   ) {
+    const user = client.data.user;
+    const sub = user?.sub;
+    if (!sub) {
+      client.emit('error', { message: 'Unauthorized: Missing user ID' });
+      return;
+    }
+
+    data.sender_id = sub;
+
     const message = await this.prisma.message.findUnique({
       where: { id: data.message_id },
     });
@@ -314,11 +362,20 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection {
   }
 
   @UseGuards(SocketGuard)
+  @ApiAddGroupMember()
   @SubscribeMessage('addMember')
   async handleAddMember(
     @MessageBody(ValidationPipe) data: AddGroupMemberDto,
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: AuthenticatedSocket,
   ) {
+    const user = client.data.user;
+    const sub = user?.sub;
+    if (!sub) {
+      client.emit('error', { message: 'Unauthorized: Missing user ID' });
+      return;
+    }
+
+    data.user_id = sub;
     const userExists = await this.prisma.user.findUnique({
       where: { id: data.user_id },
     });
@@ -406,11 +463,20 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection {
   }
 
   @UseGuards(SocketGuard)
+  @ApiLeaveGroup()
   @SubscribeMessage('leaveGroup')
   async handleLeaveRoom(
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody(ValidationPipe) data: LeaveGroupDto,
   ) {
+    const user = client.data.user;
+    const sub = user?.sub;
+    if (!sub) {
+      client.emit('error', { message: 'Unauthorized: Missing user ID' });
+      return;
+    }
+
+    data.user_id = sub;
     const chat = await this.prisma.chat.findUnique({
       where: {
         id: data.chat_id,
@@ -422,10 +488,10 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection {
       return;
     }
 
-    const user = await this.prisma.user.findUnique({
+    const userId = await this.prisma.user.findUnique({
       where: { id: data.user_id },
     });
-    if (!user) {
+    if (!userId) {
       client.emit('error', `user with ID ${data.user_id} not found`);
       return;
     }
