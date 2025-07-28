@@ -210,8 +210,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection {
     const room = `chat_${data.chat_id}`;
     const isInRoom = client.rooms.has(room);
     if (!isInRoom) {
-      client.emit('error', { message: 'You must join the chat room before sending messages' });
-      return;
+      await client.join(`chat_${room}`);
     }
 
     const sendMessage = await this.prisma.message.create({
