@@ -1,9 +1,18 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
-import { SupabaseClient, User, AuthTokenResponse } from '@supabase/supabase-js';
+import { SupabaseClient, AuthTokenResponse } from '@supabase/supabase-js';
+import { PrismaService } from '@utils/prisma/prisma.service';
 import { SupabaseService } from '@utils/supabase/supabase.service';
 import { Request } from 'express';
+import { Role } from '../enum/role.enum';
+interface CustomUser {
+  id: string;
+  email: string;
+  role: Role;
+  full_name: string;
+  is_deactivated: boolean;
+}
 interface AuthenticatedRequest extends Request {
-  user: User;
+  user: CustomUser;
   complete_user?: AuthTokenResponse['data'];
 }
 
@@ -11,7 +20,10 @@ interface AuthenticatedRequest extends Request {
 export class SupabaseAuthGuard implements CanActivate {
   private supabase: SupabaseClient;
 
-  constructor(private readonly supabaseService: SupabaseService) {
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly prisma: PrismaService,
+  ) {
     this.supabase = this.supabaseService.getPublicClient();
   }
 
@@ -52,8 +64,21 @@ export class SupabaseAuthGuard implements CanActivate {
       if (responseError || !user) {
         throw new UnauthorizedException('Invalid token');
       }
-
-      request.user = user;
+      const publicUser = await this.prisma.user.findUnique({
+        where: { id: user.id },
+        include: { roles: true },
+      });
+      console.log(publicUser);
+      if (!publicUser || !publicUser.roles) {
+        throw new UnauthorizedException('User not found or roles are mising');
+      }
+      request.user = {
+        id: publicUser?.id,
+        email: publicUser?.email,
+        role: publicUser.roles.role as Role,
+        full_name: publicUser.full_name,
+        is_deactivated: publicUser.is_deactivated,
+      };
       return true;
     } catch {
       throw new UnauthorizedException('Invalid token');
@@ -85,8 +110,21 @@ export class SupabaseAuthGuard implements CanActivate {
       if (responseError || !userData.user) {
         throw new UnauthorizedException('Invalid credentials');
       }
-
-      request.user = userData.user;
+      const publicUser = await this.prisma.user.findUnique({
+        where: { id: userData.user.id },
+        include: { roles: true },
+      });
+      console.log(publicUser);
+      if (!publicUser || !publicUser.roles) {
+        throw new UnauthorizedException('User not found or roles are mising');
+      }
+      request.user = {
+        id: publicUser?.id,
+        email: publicUser?.email,
+        role: publicUser.roles.role as Role,
+        full_name: publicUser.full_name,
+        is_deactivated: publicUser.is_deactivated,
+      };
       request.complete_user = userData;
       return true;
     } catch {

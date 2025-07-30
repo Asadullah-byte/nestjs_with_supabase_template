@@ -8,6 +8,7 @@ import { SupabaseModule } from './utils/supabase/supabase.module';
 import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
 import { JwtServiceModule } from './jwt-service/jwt-service.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { JwtServiceModule } from './jwt-service/jwt-service.module';
     AuthModule,
     ChatModule,
     JwtServiceModule,
+    AdminModule,
   ],
   controllers: [SystemController],
   providers: [],

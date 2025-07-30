@@ -1,14 +1,22 @@
-import { Controller, Get, Body, Patch, Delete, NotFoundException, Req, Put } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Body,
+  Patch,
+  Delete,
+  NotFoundException,
+  Req /*, Put*/,
+} from '@nestjs/common';
 import { Request } from 'express';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { UpdateMetadataDto } from './dto/update-metadata.dto';
+// import { UpdateMetadataDto } from './dto/update-metadata.dto';
 
 import {
   ApiGetUser,
   ApiUpdateUser,
   ApiDeleteUser,
-  ApiUpdateMetadata,
+  // ApiUpdateMetadata,
 } from './docs/api-docs.decorator';
 import { Auth } from '@decorators/auth.decorator';
 
@@ -54,22 +62,22 @@ export class UsersController {
     }
   }
 
-  @Put('metadata')
-  @ApiUpdateMetadata()
-  async updateMetadata(
-    @Req() req: Request,
-    @Body() updateMetadataDto: UpdateMetadataDto,
-  ): Promise<User> {
-    const userId = this.getUserId(req);
-    try {
-      return await this.usersService.updateMetadata(userId, updateMetadataDto.metadata);
-    } catch (error) {
-      if (error && typeof error === 'object' && 'code' in error && error.code === 'P2025') {
-        throw new NotFoundException(`User with ID ${userId} not found`);
-      }
-      throw error;
-    }
-  }
+  // @Put('metadata')
+  // @ApiUpdateMetadata()
+  // async updateMetadata(
+  //   @Req() req: Request,
+  //   @Body() updateMetadataDto: UpdateMetadataDto,
+  // ): Promise<User> {
+  //   const userId = this.getUserId(req);
+  //   try {
+  //     return await this.usersService.updateMetadata(userId, updateMetadataDto.metadata);
+  //   } catch (error) {
+  //     if (error && typeof error === 'object' && 'code' in error && error.code === 'P2025') {
+  //       throw new NotFoundException(`User with ID ${userId} not found`);
+  //     }
+  //     throw error;
+  //   }
+  // }
 
   @Delete()
   @ApiDeleteUser()

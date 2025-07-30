@@ -17,7 +17,7 @@ import { AddGroupMemberDto } from './dto/add-group-member.dto';
 import { LeaveGroupDto } from './dto/leave-group.dto';
 import { EditMessageDto } from './dto/edit-message.dto';
 import * as nodemailer from 'nodemailer';
-import { SocketGuard } from '@utils/common/guards/auth.gaurd';
+import { SocketGuard } from '@utils/common/guards/socket-auth.gaurd';
 import { AuthenticatedSocket } from './types/socket-user';
 import { JwtService } from 'src/jwt-service/jwt-service.service';
 import { socketAuthMiddleware } from '@utils/common/middleware/socket-middleware/socket.middleware';
@@ -31,6 +31,7 @@ import {
   ApiSendMessage,
 } from './docs/api-docs.decorator';
 import { ApiTags } from '@nestjs/swagger';
+import { UsersService } from 'src/user/users.service';
 
 @ApiTags('Chat-WebSocket')
 @WebSocketGateway({ namespace: '/chat' })
@@ -41,6 +42,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly userService: UsersService,
   ) {}
   afterInit(server: Server) {
     server.use(socketAuthMiddleware(this.jwtService));
@@ -49,6 +51,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection {
     console.log('User connected:', client.data.user?.sub);
   }
 
+  // Initiate Chat event to Create chat
   @UseGuards(SocketGuard)
   @SubscribeMessage('initiateChat')
   async handleInitiateChat(
@@ -58,7 +61,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection {
     try {
       let chatData;
       const user = client.data.user;
-      const sub = user?.sub;
+      const sub = user?.sub; //User Id stored with socket <-- coming from socket guard
       if (!sub) {
         client.emit('error', { message: 'Unauthorized: Missing user ID' });
         return;
@@ -74,19 +77,15 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection {
 
       if (data.members && data.members.length > 0) {
         const allMembers = [data.created_by, ...data.members];
-        if (!data.name) {
-          const searchUsers = await Promise.all(
-            data.members.map((userId) =>
-              this.prisma.user.findUnique({
-                where: { id: userId },
-                select: { metadata: true },
-              }),
-            ),
-          );
 
-          const usersName = searchUsers.map((user) => {
-            const metadata = user?.metadata as { fullName?: string };
-            return metadata?.fullName ?? 'Unnamed';
+        //check for Group name in message body if not get it from DB for all the members in array except creator and assign to group name
+
+        if (!data.name) {
+          const searchUsers = await this.userService.getUsersName(allMembers);
+
+          const usersName = searchUsers.map((userName) => {
+            const metadata = userName;
+            return metadata ?? 'Unnamed';
           });
           console.log(usersName);
           chatData = {
@@ -105,15 +104,10 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection {
         }
       } else if (data.receiver_id) {
         const allMembers = [data.created_by, data.receiver_id];
-        const chatExists = await this.prisma.chat.findFirst({
-          where: {
-            OR: [
-              { created_by: data.created_by, receiver_id: data.receiver_id },
-              { created_by: data.receiver_id, receiver_id: data.created_by },
-            ],
-          },
-          select: { id: true },
-        });
+
+        // Finding Existing if an existing 1:1 chat exists
+
+        const chatExists = await this.userService.findChatBetweenMembers(allMembers);
         if (chatExists) {
           client.emit('error', {
             message: `Chat already exist between ${data.created_by} and ${data.receiver_id}`,
@@ -122,9 +116,9 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection {
         }
         const reciever = await this.prisma.user.findUnique({
           where: { id: data.receiver_id },
-          select: { metadata: true },
+          select: { full_name: true },
         });
-        const metadata = reciever?.metadata as { fullName?: string } | undefined;
+        const metadata = reciever?.full_name as { fullName?: string } | undefined;
         recieverName = metadata?.fullName ?? 'Unamed';
 
         chatData = {

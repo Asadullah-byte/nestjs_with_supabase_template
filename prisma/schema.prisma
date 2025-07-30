@@ -10,14 +10,17 @@ datasource db {
 model User {
   id                                  String          @id(map: "users_pkey") @db.Uuid
   email                               String          @unique(map: "users_email_key")
-  metadata                            Json?           @default("[]")
   createdAt                           DateTime        @default(now()) @map("created_at")
   updatedAt                           DateTime        @default(now()) @updatedAt @map("updated_at")
+  role_id                             String          @default(dbgenerated("get_default_user_role_id()")) @db.Uuid
+  full_name                           String
+  is_deactivated                      Boolean         @default(false)
   chat                                Chat[]
   chat_chat_receiver_idTouser         Chat[]          @relation("chat_receiver_idTouser")
   group_members                       group_members[]
   messages_messages_reciever_idTouser Message[]       @relation("messages_reciever_idTouser")
   messages_messages_sender_idTouser   Message[]       @relation("messages_sender_idTouser")
+  roles                               roles           @relation(fields: [role_id], references: [id], onDelete: Cascade)
 
   @@map("user")
 }
@@ -61,4 +64,15 @@ model group_members {
   user_id    String   @db.Uuid
   chat       Chat     @relation(fields: [chat_id], references: [id], onDelete: Cascade, map: "group_members_chat_id_fkey")
   user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade, map: "group_members_user_id_fkey")
+}
+
+model roles {
+  id   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  role user_role @unique @default(user)
+  user User[]
+}
+
+enum user_role {
+  admin
+  user
 }
