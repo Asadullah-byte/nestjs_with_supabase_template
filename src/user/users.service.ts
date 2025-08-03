@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../utils/prisma/prisma.service';
 import { User, Prisma } from '@prisma/client';
+import { SupabaseService } from '@utils/supabase/supabase.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private supabaseService: SupabaseService,
+  ) {}
 
   async findOne(id: string): Promise<User | null> {
     return this.prisma.user.findUnique({
@@ -58,5 +62,31 @@ export class UsersService {
       },
       select: { id: true },
     });
+  }
+  async uploadProfilePic(file: Express.Multer.File, userId: string, token: string) {
+    console.log(userId);
+    const supabase = this.supabaseService.getClientWithAuth(token);
+    const bucket = 'avatars';
+    const filePath = `${userId}/${Date.now()}-${file.originalname}`;
+    console.log(filePath);
+    const { error } = await supabase.storage
+      .from(bucket)
+      .upload(filePath, file.buffer, { contentType: file.mimetype });
+    if (error) {
+      throw new Error(`File upload failed: ${error.message}`);
+    }
+
+    const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        profile_pic: publicUrlData.publicUrl,
+      },
+    });
+    return {
+      message: 'Profile picture uploaded successfully',
+      url: publicUrlData.publicUrl,
+    };
   }
 }

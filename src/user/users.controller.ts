@@ -6,6 +6,9 @@ import {
   Delete,
   NotFoundException,
   Req /*, Put*/,
+  Post,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { UsersService } from './users.service';
@@ -22,6 +25,22 @@ import { Auth } from '@decorators/auth.decorator';
 
 import { ApiTags } from '@nestjs/swagger';
 import { User } from '@prisma/client';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Role } from '@utils/common/enum/role.enum';
+import { AuthTokenResponse } from '@supabase/supabase-js';
+
+interface CustomUser {
+  id: string;
+  email: string;
+  role: Role;
+  full_name: string;
+  is_deactivated: boolean;
+  profile_pic: string | null;
+}
+interface AuthenticatedRequest extends Request {
+  user: CustomUser;
+  complete_user?: AuthTokenResponse['data'];
+}
 
 @Auth()
 @ApiTags('User Self')
@@ -91,5 +110,22 @@ export class UsersController {
       }
       throw error;
     }
+  }
+
+  @Get('profile-pic')
+  getProfilePic(@Req() req: AuthenticatedRequest) {
+    const profileAvatar = req.user.profile_pic;
+    return { message: 'Cool Pic', url: profileAvatar };
+  }
+
+  @Post('profile-pic/upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadProfilePic(
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const userId = req.user.id;
+    const accessToken = req.cookies['access_token'] as string;
+    return this.usersService.uploadProfilePic(file, userId, accessToken);
   }
 }

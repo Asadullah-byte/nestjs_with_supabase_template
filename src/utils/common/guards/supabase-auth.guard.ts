@@ -4,12 +4,14 @@ import { PrismaService } from '@utils/prisma/prisma.service';
 import { SupabaseService } from '@utils/supabase/supabase.service';
 import { Request } from 'express';
 import { Role } from '../enum/role.enum';
+
 interface CustomUser {
   id: string;
   email: string;
   role: Role;
   full_name: string;
   is_deactivated: boolean;
+  profile_pic: string | null;
 }
 interface AuthenticatedRequest extends Request {
   user: CustomUser;
@@ -78,6 +80,7 @@ export class SupabaseAuthGuard implements CanActivate {
         role: publicUser.roles.role as Role,
         full_name: publicUser.full_name,
         is_deactivated: publicUser.is_deactivated,
+        profile_pic: publicUser.profile_pic,
       };
       return true;
     } catch {
@@ -124,6 +127,7 @@ export class SupabaseAuthGuard implements CanActivate {
         role: publicUser.roles.role as Role,
         full_name: publicUser.full_name,
         is_deactivated: publicUser.is_deactivated,
+        profile_pic: publicUser.profile_pic,
       };
       request.complete_user = userData;
       return true;

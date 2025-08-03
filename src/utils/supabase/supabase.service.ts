@@ -25,6 +25,19 @@ export class SupabaseService {
     return this.supabase_public;
   }
 
+  getClientWithAuth(token: string): SupabaseClient {
+    const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
+    const supabaseAnonKey = this.configService.get<string>('SUPABASE_ANON_KEY');
+    if (!supabaseUrl || !supabaseAnonKey) throw new Error('Supabase Url or Anon Key Missing');
+    return createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    });
+  }
+
   async signUp(
     email: string,
     password: string,
