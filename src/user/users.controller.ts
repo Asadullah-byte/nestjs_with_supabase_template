@@ -19,6 +19,8 @@ import {
   ApiGetUser,
   ApiUpdateUser,
   ApiDeleteUser,
+  ApiGetProfilePhoto,
+  ApiUploadProfilePhoto,
   // ApiUpdateMetadata,
 } from './docs/api-docs.decorator';
 import { Auth } from '@decorators/auth.decorator';
@@ -113,12 +115,14 @@ export class UsersController {
   }
 
   @Get('profile-pic')
+  @ApiGetProfilePhoto()
   getProfilePic(@Req() req: AuthenticatedRequest) {
     const profileAvatar = req.user.profile_pic;
     return { message: 'Cool Pic', url: profileAvatar };
   }
 
   @Post('profile-pic/upload')
+  @ApiUploadProfilePhoto()
   @UseInterceptors(FileInterceptor('file'))
   async uploadProfilePic(
     @UploadedFile() file: Express.Multer.File,
