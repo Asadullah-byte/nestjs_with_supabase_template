@@ -43,22 +43,20 @@ export class ImageService {
       throw new Error(`File upload failed: ${error.message}`);
     }
 
-    const { data: SignedUrlData } = await supabase.storage
-      .from(bucket)
-      .createSignedUrl(filePath, 7 * 24 * 60 * 60);
+    const { data: PublicUrlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
 
-    if (!SignedUrlData) throw new Error('Signed Url not generated or exits ');
+    if (!PublicUrlData) throw new Error('Signed Url not generated or exits ');
 
     await this.prisma.images.create({
       data: {
         user_id: userId,
         image_id: response.id,
-        image_url: SignedUrlData.signedUrl,
+        image_url: PublicUrlData.publicUrl,
       },
     });
     return {
       message: 'Image Generated successfully',
-      url: SignedUrlData.signedUrl,
+      url: PublicUrlData.publicUrl,
     };
   }
 
@@ -110,22 +108,20 @@ export class ImageService {
       throw new Error(`File upload failed: ${error.message}`);
     }
 
-    const { data: SignedUrlData } = await supabase.storage
-      .from(bucket)
-      .createSignedUrl(filePath, 7 * 24 * 60 * 60);
+    const { data: PublicUrlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
 
-    if (!SignedUrlData) throw new Error('Signed Url not generated or exits ');
+    if (!PublicUrlData) throw new Error('Signed Url not generated or exits ');
     await this.prisma.images.update({
       where: { image_id: EditImageDto.image_id },
       data: {
         user_id: userId,
         image_id: response.id,
-        image_url: SignedUrlData.signedUrl,
+        image_url: PublicUrlData.publicUrl,
       },
     });
     return {
       message: 'Profile picture uploaded successfully',
-      url: SignedUrlData.signedUrl,
+      url: PublicUrlData.publicUrl,
     };
   }
 }
