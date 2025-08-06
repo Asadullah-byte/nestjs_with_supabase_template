@@ -28,13 +28,17 @@ export class SupabaseService {
   getClientWithAuth(token: string): SupabaseClient {
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
     const supabaseAnonKey = this.configService.get<string>('SUPABASE_ANON_KEY');
-    if (!supabaseUrl || !supabaseAnonKey) throw new Error('Supabase Url or Anon Key Missing');
-    return createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
+    const supabaseServiceKey = this.configService.get<string>('SUPABASE_SERVICE_KEY');
+
+    if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey)
+      throw new Error('Supabase Url or Anon Key Missing');
+    console.log(token);
+    return createClient(supabaseUrl, supabaseServiceKey, {
+      // global: {
+      //   headers: {
+      //     Authorization: `Bearer ${token}`,
+      //   },
+      // },
     });
   }
 
