@@ -19,6 +19,7 @@ model User {
   chat                                Chat[]
   chat_chat_receiver_idTouser         Chat[]          @relation("chat_receiver_idTouser")
   group_members                       group_members[]
+  images                              images[]
   messages_messages_reciever_idTouser Message[]       @relation("messages_reciever_idTouser")
   messages_messages_sender_idTouser   Message[]       @relation("messages_sender_idTouser")
   roles                               roles           @relation(fields: [role_id], references: [id], onDelete: Cascade)
@@ -71,6 +72,17 @@ model roles {
   id   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   role user_role @unique @default(user)
   user User[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model images {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  image_id   String   @unique
+  user_id    String   @db.Uuid
+  image_url  String?
+  file_path  String?
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 enum user_role {

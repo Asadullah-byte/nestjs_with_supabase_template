@@ -7,6 +7,7 @@ import { Request } from 'express';
 import { GenerateImageDto } from './dto/generate-image.dto';
 import { EditImageDto } from './dto/edit-image.dto';
 import { ApiEditImage, ApiGenerateImage } from './docs/api-docs.decorator';
+import { ApiTags } from '@nestjs/swagger';
 interface CustomUser {
   id: string;
   email: string;
@@ -20,6 +21,7 @@ interface AuthenticatedRequest extends Request {
   complete_user?: AuthTokenResponse['data'];
 }
 @UseGuards(SupabaseAuthGuard)
+@ApiTags('Images')
 @Controller('image')
 export class ImageController {
   constructor(private readonly imageService: ImageService) {}
@@ -43,5 +45,12 @@ export class ImageController {
     const user_id = req.user.id;
     const accessToken = req.cookies['access_token'] as string;
     return this.imageService.editImage(user_id, accessToken, EditImageDto);
+  }
+
+  @Get('get-image')
+  async getImages(@Req() req: AuthenticatedRequest, @Body('image_id') image_id: string) {
+    const user_id = req.user.id;
+    const accessToken = req.cookies['access_token'] as string;
+    return this.imageService.getImages(user_id, accessToken, image_id);
   }
 }

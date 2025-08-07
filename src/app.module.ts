@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
 import { JwtServiceModule } from './jwt-service/jwt-service.module';
 import { AdminModule } from './admin/admin.module';
+import { ImageModule } from './image/image.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { AdminModule } from './admin/admin.module';
     ChatModule,
     JwtServiceModule,
     AdminModule,
+    ImageModule,
   ],
   controllers: [SystemController],
   providers: [],
