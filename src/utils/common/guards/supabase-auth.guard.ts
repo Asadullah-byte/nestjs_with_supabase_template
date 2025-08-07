@@ -1,9 +1,20 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
-import { SupabaseClient, User, AuthTokenResponse } from '@supabase/supabase-js';
+import { SupabaseClient, AuthTokenResponse } from '@supabase/supabase-js';
+import { PrismaService } from '@utils/prisma/prisma.service';
 import { SupabaseService } from '@utils/supabase/supabase.service';
 import { Request } from 'express';
+import { Role } from '../enum/role.enum';
+
+interface CustomUser {
+  id: string;
+  email: string;
+  role: Role;
+  full_name: string;
+  is_deactivated: boolean;
+  profile_pic: string | null;
+}
 interface AuthenticatedRequest extends Request {
-  user: User;
+  user: CustomUser;
   complete_user?: AuthTokenResponse['data'];
 }
 
@@ -11,13 +22,26 @@ interface AuthenticatedRequest extends Request {
 export class SupabaseAuthGuard implements CanActivate {
   private supabase: SupabaseClient;
 
-  constructor(private readonly supabaseService: SupabaseService) {
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly prisma: PrismaService,
+  ) {
     this.supabase = this.supabaseService.getPublicClient();
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<Request>();
+    const request: AuthenticatedRequest = context.switchToHttp().getRequest();
     const authHeader = request.headers.authorization;
+    const authMethod = process.env.AUTHENTICATED_METHOD;
+
+    let token: string | undefined;
+
+    if (authMethod === 'cookie') {
+      const cookies = request.cookies as Record<string, string> | undefined;
+      token = cookies?.['access_token'];
+      if (!token) throw new UnauthorizedException('No access cookie found');
+      return this.handleJwtAuth(token, request);
+    }
 
     if (!authHeader || typeof authHeader !== 'string') {
       throw new UnauthorizedException('No authentication provided');
@@ -42,8 +66,22 @@ export class SupabaseAuthGuard implements CanActivate {
       if (responseError || !user) {
         throw new UnauthorizedException('Invalid token');
       }
-
-      request.user = user;
+      const publicUser = await this.prisma.user.findUnique({
+        where: { id: user.id },
+        include: { roles: true },
+      });
+      console.log(publicUser);
+      if (!publicUser || !publicUser.roles) {
+        throw new UnauthorizedException('User not found or roles are mising');
+      }
+      request.user = {
+        id: publicUser?.id,
+        email: publicUser?.email,
+        role: publicUser.roles.role as Role,
+        full_name: publicUser.full_name,
+        is_deactivated: publicUser.is_deactivated,
+        profile_pic: publicUser.profile_pic,
+      };
       return true;
     } catch {
       throw new UnauthorizedException('Invalid token');
@@ -75,8 +113,22 @@ export class SupabaseAuthGuard implements CanActivate {
       if (responseError || !userData.user) {
         throw new UnauthorizedException('Invalid credentials');
       }
-
-      request.user = userData.user;
+      const publicUser = await this.prisma.user.findUnique({
+        where: { id: userData.user.id },
+        include: { roles: true },
+      });
+      console.log(publicUser);
+      if (!publicUser || !publicUser.roles) {
+        throw new UnauthorizedException('User not found or roles are mising');
+      }
+      request.user = {
+        id: publicUser?.id,
+        email: publicUser?.email,
+        role: publicUser.roles.role as Role,
+        full_name: publicUser.full_name,
+        is_deactivated: publicUser.is_deactivated,
+        profile_pic: publicUser.profile_pic,
+      };
       request.complete_user = userData;
       return true;
     } catch {

@@ -5,8 +5,8 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public."user" ("id", "email", "metadata")
-  values (new.id::uuid, new.email, new.raw_user_meta_data);
+  insert into public."user" ("id", "email", "full_name")
+  values (new.id::uuid, new.email, new.raw_user_meta_data->>'fullName');
   return new;
 end;
 $$;
@@ -24,7 +24,7 @@ SET search_path = public
 AS $$
 begin
   update public."user"
-  set metadata = new.raw_user_meta_data
+  set full_name = new.raw_user_meta_data->>'fullName'
   where id = new.id::uuid;
   return new;
 end;

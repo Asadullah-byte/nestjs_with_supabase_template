@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../utils/prisma/prisma.service';
 import { User, Prisma } from '@prisma/client';
+import { SupabaseService } from '@utils/supabase/supabase.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private supabaseService: SupabaseService,
+  ) {}
 
   async findOne(id: string): Promise<User | null> {
     return this.prisma.user.findUnique({
@@ -18,12 +22,12 @@ export class UsersService {
     });
   }
 
-  async updateMetadata(id: string, metadata: Prisma.InputJsonValue): Promise<User> {
-    return this.prisma.user.update({
-      where: { id },
-      data: { metadata },
-    });
-  }
+  // async updateMetadata(id: string, metadata: Prisma.InputJsonValue): Promise<User> {
+  //   return this.prisma.user.update({
+  //     where: { id },
+  //     data: { metadata },
+  //   });
+  // }
 
   async update(id: string, data: Prisma.UserUpdateInput): Promise<User> {
     return this.prisma.user.update({
@@ -36,5 +40,53 @@ export class UsersService {
     return this.prisma.user.delete({
       where: { id },
     });
+  }
+
+  async getUsersName(userIds: string[]): Promise<string[]> {
+    const users: { full_name: string }[] = await this.prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { full_name: true },
+    });
+
+    return users.map((user) => user.full_name);
+  }
+
+  async findChatBetweenMembers(members: string[]): Promise<{ id: string } | null> {
+    const [sender_id, receiver_id] = members;
+    return this.prisma.chat.findFirst({
+      where: {
+        OR: [
+          { created_by: sender_id, receiver_id: receiver_id },
+          { created_by: receiver_id, receiver_id: sender_id },
+        ],
+      },
+      select: { id: true },
+    });
+  }
+  async uploadProfilePic(file: Express.Multer.File, userId: string, token: string) {
+    console.log(userId);
+    const supabase = this.supabaseService.getClientWithAuth(token);
+    const bucket = 'avatars';
+    const filePath = `${userId}/${Date.now()}-${file.originalname}`;
+    console.log(filePath);
+    const { error } = await supabase.storage
+      .from(bucket)
+      .upload(filePath, file.buffer, { contentType: file.mimetype });
+    if (error) {
+      throw new Error(`File upload failed: ${error.message}`);
+    }
+
+    const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        profile_pic: publicUrlData.publicUrl,
+      },
+    });
+    return {
+      message: 'Profile picture uploaded successfully',
+      url: publicUrlData.publicUrl,
+    };
   }
 }
